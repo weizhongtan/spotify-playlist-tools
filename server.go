@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
+	"github.com/joho/godotenv"
 	"golang.org/x/oauth2"
 )
 
@@ -18,6 +20,11 @@ const redirectURL = "http://localhost:8080/callback/"
 const state = "foobar"
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	r := gin.Default()
 
 	store := cookie.NewStore([]byte("secret"))
