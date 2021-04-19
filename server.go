@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zmb3/spotify"
@@ -33,7 +34,7 @@ func main() {
 	clientID := os.Getenv("CLIENT_ID")
 	secretKey := os.Getenv("CLIENT_SECRET")
 
-	auth := spotify.NewAuthenticator(redirectURL, spotify.ScopeUserReadPrivate)
+	auth := spotify.NewAuthenticator(redirectURL, spotify.ScopeUserReadPrivate, spotify.ScopePlaylistReadPrivate)
 
 	auth.SetAuthInfo(clientID, secretKey)
 
@@ -65,7 +66,9 @@ func main() {
 		c.Redirect(http.StatusFound, "/")
 	})
 
-	r.GET("/", func(c *gin.Context) {
+	r.GET("/search", func(c *gin.Context) {
+		trackNameQuery := c.Query("track_name")
+
 		session := sessions.Default(c)
 
 		tok, ok := session.Get("token").([]byte)
@@ -80,13 +83,42 @@ func main() {
 		client := auth.NewClient(token)
 
 		user, err := client.CurrentUser()
-
 		if err != nil {
 			c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
+			return
 		}
 
-		c.JSON(http.StatusOK, user)
+		playlists, err := client.GetPlaylistsForUser(user.ID)
+		if err != nil {
+			c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
+			return
+		}
+
+		var matchedPlaylists []string
+		var matchedTracks []string
+
+		for _, playlist := range playlists.Playlists {
+			rawTracks, _ := client.GetPlaylistTracks(playlist.ID)
+
+			for _, track := range rawTracks.Tracks {
+				trackName := track.Track.Name
+				re := regexp.MustCompile("(?i)" + trackNameQuery)
+				if re.MatchString(trackName) {
+					matchedPlaylists = append(matchedPlaylists, playlist.Name)
+					matchedTracks = append(matchedTracks, track.Track.Name)
+				}
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"user:":              user,
+			"playlists searched": len(playlists.Playlists),
+			"matchedPlaylists":   matchedPlaylists,
+			"matchedTracks":      matchedTracks,
+		})
 	})
+
+	r.Static("/app", "./static")
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
