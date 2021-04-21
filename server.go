@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/patrickmn/go-cache"
 	"github.com/zmb3/spotify"
 
 	"github.com/gin-contrib/sessions"
@@ -16,6 +18,11 @@ import (
 	"github.com/joho/godotenv"
 	"golang.org/x/oauth2"
 )
+
+type Playlist struct {
+	Name   string
+	Tracks []spotify.PlaylistTrack
+}
 
 const redirectURL = "http://localhost:8080/callback/"
 const state = "foobar"
@@ -26,7 +33,11 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
+	ca := cache.New(20*time.Minute, 40*time.Minute)
+
 	r := gin.Default()
+
+	r.LoadHTMLGlob("templates/*")
 
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
@@ -80,41 +91,53 @@ func main() {
 		token := &oauth2.Token{}
 		json.Unmarshal(tok, token)
 
-		client := auth.NewClient(token)
+		playlistsRaw, _ := ca.Get("playlists")
+		playlists, ok := playlistsRaw.([]Playlist)
+		if !ok {
+			client := auth.NewClient(token)
 
-		user, err := client.CurrentUser()
-		if err != nil {
-			c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
-			return
+			user, err := client.CurrentUser()
+			if err != nil {
+				c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
+				return
+			}
+
+			playlistsInner, err := client.GetPlaylistsForUser(user.ID)
+			if err != nil {
+				c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
+				return
+			}
+
+			var temp []Playlist
+
+			for _, rawpl := range playlistsInner.Playlists {
+				rawTracks, _ := client.GetPlaylistTracks(rawpl.ID)
+				pl := Playlist{rawpl.Name, rawTracks.Tracks}
+				temp = append(temp, pl)
+			}
+
+			ca.SetDefault("playlists", temp)
+			playlists = temp
 		}
 
-		playlists, err := client.GetPlaylistsForUser(user.ID)
-		if err != nil {
-			c.String(http.StatusInternalServerError, fmt.Sprintf("error: %s", err))
-			return
-		}
+		var matches []Playlist
 
-		var matchedPlaylists []string
-		var matchedTracks []string
+		for _, pl := range playlists {
+			var trackMatches []spotify.PlaylistTrack
 
-		for _, playlist := range playlists.Playlists {
-			rawTracks, _ := client.GetPlaylistTracks(playlist.ID)
-
-			for _, track := range rawTracks.Tracks {
-				trackName := track.Track.Name
+			for _, track := range pl.Tracks {
 				re := regexp.MustCompile("(?i)" + trackNameQuery)
-				if re.MatchString(trackName) {
-					matchedPlaylists = append(matchedPlaylists, playlist.Name)
-					matchedTracks = append(matchedTracks, track.Track.Name)
+				if re.MatchString(track.Track.Name) {
+					trackMatches = append(trackMatches, track)
 				}
 			}
+
+			matches = append(matches, Playlist{pl.Name, trackMatches})
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"user:":              user,
-			"playlists searched": len(playlists.Playlists),
-			"matchedPlaylists":   matchedPlaylists,
-			"matchedTracks":      matchedTracks,
+		c.HTML(http.StatusOK, "search.tmpl", gin.H{
+			"PlaylistsSearched": len(playlists),
+			"Matches":           matches,
 		})
 	})
 

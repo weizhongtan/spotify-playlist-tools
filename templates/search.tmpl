@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search results</title>
+</head>
+
+<body>
+  <p>Username: {{.DisplayName}}</p>
+  <p>Total playlists searched: {{.PlaylistsSearched}}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Playlist</th>
+        <th>Track</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Matches}}
+        <tr>
+          <td>{{.Name}}</td>
+          <td>
+            {{range .Tracks}}
+            <a href="{{.Track.ExternalURLs.spotify}}">{{.Track.Name}}</a>
+            {{end}}
+          </td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</body>
+
+</html>
