@@ -1,16 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>Spotify Playlist Tools</title>
 </head>
+
 <body>
+  <title>Hello from Flask</title>
+  <h1>
+    {{ 'Welcome {}'.format(name) if is_logged_in else 'You are not logged in' }}
+  </h1>
+  <a href="/auth">click to authenticate</a>
+  <a href="/logout">logout</a>
   <form method="get" action="/search">
     <label for="search">Search for a track name in a playlist of yours:</label>
     <input type="text" name="track_name">
     <button type="submit">Search!</button>
   </form>
 </body>
+
 </html>
