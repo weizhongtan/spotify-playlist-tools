@@ -8,6 +8,7 @@ flask = "*"
 python-dotenv = "*"
 install = "*"
 spotipy = "*"
+flask-session = "*"
 
 [dev-packages]
 autopep8 = "*"
