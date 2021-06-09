@@ -11,10 +11,13 @@
 <body>
   <title>Hello from Flask</title>
   <h1>
-    {{ 'Welcome {}'.format(name) if is_logged_in else 'You are not logged in' }}
+    {{ 'Welcome {}'.format(username) if username else 'You are not logged in' }}
   </h1>
-  <a href="/auth">click to authenticate</a>
+  {% if username %}
   <a href="/logout">logout</a>
+  {% else %}
+  <a href="/login">click to login</a>
+  {% endif %}
   <form method="get" action="/search">
     <label for="search">Search for a track name in a playlist of yours:</label>
     <input type="text" name="track_name">

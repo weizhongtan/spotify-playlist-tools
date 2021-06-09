@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 flask = "*"
 python-dotenv = "*"
+install = "*"
+spotipy = "*"
 
 [dev-packages]
 autopep8 = "*"
