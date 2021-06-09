@@ -1,10 +1,13 @@
-from flask import Flask, url_for, redirect, render_template, request, make_response, session
+from flask import Flask, url_for, redirect, render_template, request, make_response, session, jsonify
 from flask_session import Session
 from dotenv import load_dotenv
 import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.cache_handler import CacheFileHandler
 import uuid
+import re
+from functools import lru_cache
 
 load_dotenv()
 
@@ -30,10 +33,10 @@ def index():
         # Step 1. Visitor is unknown, give random ID
         session['uuid'] = str(uuid.uuid4())
 
-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+    cache_handler = CacheFileHandler(
         cache_path=session_cache_path()
     )
-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+    auth_manager = SpotifyOAuth(
         scope='user-read-private,playlist-read-private',
         cache_handler=cache_handler,
         show_dialog=True
@@ -56,10 +59,10 @@ def index():
 
 @app.route("/login")
 def login():
-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+    cache_handler = CacheFileHandler(
         cache_path=session_cache_path()
     )
-    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+    auth_manager = SpotifyOAuth(cache_handler=cache_handler)
     resp = redirect(auth_manager.get_authorize_url())
     return resp
 
@@ -73,3 +76,49 @@ def logout():
     except OSError as e:
         print("Error: %s - %s." % (e.filename, e.strerror))
     return redirect(url_for('index'))
+
+
+@lru_cache(maxsize=50)
+def user_playlist_tracks(cache_path, user_id, playlist_id):
+    cache_handler = CacheFileHandler(
+        cache_path=cache_path
+    )
+    auth_manager = SpotifyOAuth(cache_handler=cache_handler)
+    sp = spotipy.Spotify(auth_manager=auth_manager)
+    print('getting tracks for: ', playlist_id)
+    return sp.user_playlist_tracks(user_id, playlist_id=playlist_id)['items']
+
+
+# API endpoints
+@app.route('/search-playlists')
+def playlists():
+    # TODO: move this logic into middleware
+    cache_handler = CacheFileHandler(
+        cache_path=session_cache_path()
+    )
+    auth_manager = SpotifyOAuth(cache_handler=cache_handler)
+    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+        return redirect(url_for('index'))
+
+    sp = spotipy.Spotify(auth_manager=auth_manager)
+    id = sp.me()['id']
+    playlists = sp.user_playlists(id)['items']
+
+    pattern = re.compile(request.args.get('track_name'), flags=re.IGNORECASE)
+
+    matched_tracks = []
+
+    for playlist in playlists:
+        tracks = user_playlist_tracks(session_cache_path(), id, playlist['id'])
+        raw_tracks = [track['track'] for track in tracks]
+        for raw_track in raw_tracks:
+            if raw_track['name'] != None:
+                track_name = raw_track['name']
+                if pattern.search(track_name):
+                    track = {
+                        'name': track_name,
+                        'artists': [artist['name'] for artist in raw_track['artists']]
+                    }
+                    matched_tracks.append(track)
+
+    return jsonify(matched_tracks)
