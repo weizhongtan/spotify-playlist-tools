@@ -8,6 +8,8 @@ from spotipy.cache_handler import CacheFileHandler
 import uuid
 import re
 from functools import lru_cache
+from middleware.login_required import login_required
+from lib import caches_folder, session_cache_path
 
 load_dotenv()
 
@@ -15,16 +17,10 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SERVER_SECRET')
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = './.flask_session/'
-
 Session(app)
 
-caches_folder = './.spotify_caches/'
 if not os.path.exists(caches_folder):
     os.makedirs(caches_folder)
-
-
-def session_cache_path():
-    return caches_folder + session.get('uuid')
 
 
 @app.route("/")
@@ -91,16 +87,8 @@ def user_playlist_tracks(cache_path, user_id, playlist_id):
 
 # API endpoints
 @app.route('/search-playlists')
-def playlists():
-    # TODO: move this logic into middleware
-    cache_handler = CacheFileHandler(
-        cache_path=session_cache_path()
-    )
-    auth_manager = SpotifyOAuth(cache_handler=cache_handler)
-    if not auth_manager.validate_token(cache_handler.get_cached_token()):
-        return redirect(url_for('index'))
-
-    sp = spotipy.Spotify(auth_manager=auth_manager)
+@login_required
+def playlists(sp):
     id = sp.me()['id']
     playlists = sp.user_playlists(id)['items']
 
@@ -112,7 +100,7 @@ def playlists():
         tracks = user_playlist_tracks(session_cache_path(), id, playlist['id'])
         raw_tracks = [track['track'] for track in tracks]
         for raw_track in raw_tracks:
-            if raw_track['name'] != None:
+            if raw_track != None and 'name' in raw_track and raw_track['name'] != None:
                 track_name = raw_track['name']
                 if pattern.search(track_name):
                     track = {
@@ -121,4 +109,15 @@ def playlists():
                     }
                     matched_tracks.append(track)
 
-    return jsonify(matched_tracks)
+    return render_template('results.html', tracks=matched_tracks, headings=['track', 'artists'])
+
+
+if __name__ == '__main__':
+    print('running in prod!')
+    app.run(
+        threaded=True,
+        port=int(os.environ.get(
+            "PORT",
+            os.environ.get("SPOTIPY_REDIRECT_URI", 8080).split(":")[-1])
+        )
+    )

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Playlist Tools | matches</title>
+</head>
+
+<body>
+  <h1>Results</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>track</th>
+        <th>artists</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for track in tracks %}
+      <tr>
+        <td>{{ track.name }}</td>
+        <td>{{ track.artists }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+
+</html>
