@@ -1,16 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>Spotify Playlist Tools</title>
 </head>
+
 <body>
-  <form method="get" action="/search">
+  <h1>
+    {{ 'Welcome {}'.format(username) if username else 'You are not logged in' }}
+  </h1>
+  {% if username %}
+  <a href="/logout">logout</a>
+  {% else %}
+  <a href="/login">click to login</a>
+  {% endif %}
+  <form method="get" action="/search-playlists">
     <label for="search">Search for a track name in a playlist of yours:</label>
     <input type="text" name="track_name">
     <button type="submit">Search!</button>
   </form>
 </body>
+
 </html>
