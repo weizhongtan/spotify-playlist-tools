@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Playlist Tools</title>
+</head>
+
+<body>
+  <h1>
+    {{ 'Welcome {}'.format(username) if username else 'You are not logged in' }}
+  </h1>
+  {% if username %}
+  <a href="/logout">logout</a>
+  {% else %}
+  <a href="/login">click to login</a>
+  {% endif %}
+  <section>
+    <h2>Search for track in your playlists</h2>
+    <form method="get" action="/search-playlists">
+      <label for="search">Search for a track name in a playlist of yours:</label>
+      <input type="text" name="track_name">
+      <button type="submit">Search!</button>
+    </form>
+  </section>
+  <section>
+    <h2>Show liked songs that aren't in a playlist</h2>
+  </section>
+</body>
+
+</html>
