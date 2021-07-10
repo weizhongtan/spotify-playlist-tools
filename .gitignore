@@ -2,3 +2,4 @@
 .cache
 .spotify_caches
 .flask_session
+.data-cache

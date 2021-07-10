@@ -1,5 +1,6 @@
 from flask import Flask, url_for, redirect, render_template, request, make_response, session, jsonify
 from flask_session import Session
+from flask_caching import Cache
 from dotenv import load_dotenv
 import os
 import spotipy
@@ -14,10 +15,18 @@ from lib import caches_folder, session_cache_path
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SERVER_SECRET')
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = './.flask_session/'
+config = {
+    "SECRET_KEY": os.getenv('SERVER_SECRET'),
+    "SESSION_TYPE": 'filesystem',
+    "SESSION_FILE_DIR": './.flask_session/',
+    "DEBUG": True,
+    "CACHE_TYPE": "FileSystemCache",
+    "CACHE_DEFAULT_TIMEOUT": 300,
+    "CACHE_DIR": ".data-cache",
+}
+app.config.from_mapping(config)
 Session(app)
+cache = Cache(app)
 
 if not os.path.exists(caches_folder):
     os.makedirs(caches_folder)
@@ -74,15 +83,15 @@ def logout():
     return redirect(url_for('index'))
 
 
-@lru_cache(maxsize=50)
-def user_playlist_tracks(cache_path, user_id, playlist_id):
+@cache.memoize(60 * 60 * 24)  # cache for 24 hours
+def user_playlist_tracks(cache_path, playlist_id):
     cache_handler = CacheFileHandler(
         cache_path=cache_path
     )
     auth_manager = SpotifyOAuth(cache_handler=cache_handler)
     sp = spotipy.Spotify(auth_manager=auth_manager)
     print('getting tracks for: ', playlist_id)
-    return sp.user_playlist_tracks(user_id, playlist_id=playlist_id)['items']
+    return sp.playlist_tracks(playlist_id=playlist_id)['items']
 
 
 # API endpoints
@@ -97,7 +106,7 @@ def playlists(sp):
     matched_tracks = []
 
     for playlist in playlists:
-        tracks = user_playlist_tracks(session_cache_path(), id, playlist['id'])
+        tracks = user_playlist_tracks(session_cache_path(), playlist['id'])
         raw_tracks = [track['track'] for track in tracks]
         for raw_track in raw_tracks:
             if raw_track != None and 'name' in raw_track and raw_track['name'] != None:
